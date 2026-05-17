@@ -46,7 +46,13 @@ export const PRODUCTS: ProductConfig[] = [
       environment: lirefinDodoEnv,
     },
     ga4PropertyId: process.env.LIREFIN_GA4_PROPERTY_ID,
-    gscDomain: "sc-domain:lirefin.com",
+    // GSC siteUrl format depends on the property type:
+    //   Domain property      → "sc-domain:lirefin.com"
+    //   URL prefix property  → "https://www.lirefin.com/" (trailing slash!)
+    // Default below covers Lirefin's URL-prefix verification; override
+    // via env if you swap to a Domain property later.
+    gscDomain:
+      process.env.LIREFIN_GSC_SITE_URL ?? "https://www.lirefin.com/",
   },
 ];
 
