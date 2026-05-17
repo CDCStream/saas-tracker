@@ -39,6 +39,29 @@ export function generateStaticParams() {
   return PRODUCTS.map((p) => ({ slug: p.slug }));
 }
 
+function formatGoogleError(e: unknown, fallback: string): string {
+  if (e instanceof Error && e.message) return e.message;
+  if (typeof e === "object" && e !== null) {
+    const obj = e as Record<string, unknown> & {
+      response?: { data?: { error?: { message?: string } } };
+      errors?: Array<{ message?: string }>;
+      code?: string | number;
+      message?: string;
+    };
+    if (obj.response?.data?.error?.message) {
+      return obj.response.data.error.message;
+    }
+    if (obj.errors?.[0]?.message) return obj.errors[0].message;
+    if (obj.message) return String(obj.message);
+    try {
+      return JSON.stringify(obj).slice(0, 200);
+    } catch {
+      // fall through
+    }
+  }
+  return fallback;
+}
+
 async function safeGa4(
   propertyId: string | undefined
 ): Promise<Ga4Snapshot | { error: string } | null> {
@@ -46,7 +69,7 @@ async function safeGa4(
   try {
     return await fetchGa4Snapshot(propertyId, 7);
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "GA4 error" };
+    return { error: formatGoogleError(e, "GA4 error") };
   }
 }
 
@@ -57,7 +80,7 @@ async function safeGsc(
   try {
     return await fetchGscSnapshot(domain, 28);
   } catch (e) {
-    return { error: e instanceof Error ? e.message : "GSC error" };
+    return { error: formatGoogleError(e, "GSC error") };
   }
 }
 
