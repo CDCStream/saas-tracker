@@ -1,6 +1,15 @@
 import { lirefinQueries } from "./queries/lirefin";
 import { DEFAULT_THRESHOLDS, type ProductConfig } from "./types";
 
+/**
+ * Hard cap on the portfolio. Concentration rule: never split attention
+ * across more than 2 products at once. When a product fails its gates,
+ * run the kill protocol (KILL-PROTOCOL.md) before adding a new one.
+ *
+ * The runtime assertion below catches accidental 3rd entries on import.
+ */
+export const MAX_PORTFOLIO_SIZE = 2;
+
 const lirefinDodoEnv = (process.env.LIREFIN_DODO_ENV ?? "live_mode") as
   | "live_mode"
   | "test_mode";
@@ -31,6 +40,18 @@ export const PRODUCTS: ProductConfig[] = [
   },
 ];
 
+if (PRODUCTS.length > MAX_PORTFOLIO_SIZE) {
+  throw new Error(
+    `Portfolio cap exceeded: ${PRODUCTS.length} products in PRODUCTS, ` +
+      `max is ${MAX_PORTFOLIO_SIZE}. Run KILL-PROTOCOL.md on a failing ` +
+      `product first, then add the new one.`
+  );
+}
+
 export function getProduct(slug: string): ProductConfig | undefined {
   return PRODUCTS.find((p) => p.slug === slug);
+}
+
+export function openSlots(): number {
+  return Math.max(0, MAX_PORTFOLIO_SIZE - PRODUCTS.length);
 }

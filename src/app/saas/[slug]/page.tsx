@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GoogleApiPanel } from "@/components/GoogleApiPanel";
+import { KillProtocolPanel } from "@/components/KillProtocolPanel";
 import { KpiTable } from "@/components/KpiTable";
 import { MetricCard } from "@/components/MetricCard";
 import { DecisionPill } from "@/components/GateBadge";
@@ -200,6 +201,16 @@ export default async function SaasDetailPage(props: {
         </div>
         <DecisionPill decision={decision} />
       </div>
+
+      {decision === "KILL" ? (
+        <KillProtocolPanel
+          slug={product.slug}
+          name={product.name}
+          archivePath={`archive/${product.slug}-killed-${new Date()
+            .toISOString()
+            .slice(0, 10)}.md`}
+        />
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard

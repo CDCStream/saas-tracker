@@ -1,6 +1,18 @@
 # saas-tracker
 
-Portfolio dashboard for tracking SaaS launch gates — currently Lirefin, with room for the next products in the pipeline. Deployed to **looktoprice.com**.
+Portfolio dashboard for tracking SaaS launch gates — currently Lirefin, with room for **at most one more** product. Deployed to **looktoprice.com**.
+
+## The 2-slot rule
+
+The dashboard caps the portfolio at `MAX_PORTFOLIO_SIZE = 2`. Adding a
+3rd product makes the build fail (assertion in
+[`src/lib/products.ts`](src/lib/products.ts)). When a product hits
+`KILL` after the 60-day test, run [KILL-PROTOCOL.md](KILL-PROTOCOL.md)
+to free the slot **completely** (Vercel project, Supabase project, Dodo
+product, env vars, registry entry) before queuing the next idea.
+
+The dashboard surfaces the same protocol on `/saas/<slug>` whenever the
+gate decision is KILL.
 
 ## What it shows
 
@@ -24,6 +36,9 @@ flowchart LR
 ```
 
 ## Adding a SaaS
+
+If the portfolio is already full (`PRODUCTS.length === 2`), kill an
+existing product first via [KILL-PROTOCOL.md](KILL-PROTOCOL.md). Then:
 
 1. Add env vars in Vercel (see `.env.example`).
 2. Add an entry to [`src/lib/products.ts`](src/lib/products.ts).

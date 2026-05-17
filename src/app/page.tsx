@@ -1,7 +1,8 @@
+import { EmptySlotCard } from "@/components/EmptySlotCard";
 import { ProductCard, type ProductCardData } from "@/components/ProductCard";
 import { billingFor } from "@/lib/billing";
 import { type Decision } from "@/lib/gates";
-import { PRODUCTS } from "@/lib/products";
+import { MAX_PORTFOLIO_SIZE, PRODUCTS, openSlots } from "@/lib/products";
 import { supabaseFor } from "@/lib/supabaseRead";
 import { daysSince } from "@/lib/formatters";
 
@@ -49,21 +50,35 @@ async function loadCardData(
 
 export default async function PortfolioPage() {
   const cards = await Promise.all(PRODUCTS.map(loadCardData));
+  const slots = openSlots();
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold">Portfolio</h1>
         <p className="text-sm text-[var(--color-text-muted)] mt-1">
-          {PRODUCTS.length} product{PRODUCTS.length === 1 ? "" : "s"} in test
-          window. Tap a card for the full gate breakdown.
+          {PRODUCTS.length} of {MAX_PORTFOLIO_SIZE} slots filled
+          {slots > 0
+            ? ` — ${slots} open`
+            : " — concentration cap reached"}
+          . Tap a card for the gate breakdown.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         {cards.map((c) => (
           <ProductCard key={c.product.slug} data={c} />
         ))}
+        {Array.from({ length: slots }).map((_, i) => (
+          <EmptySlotCard key={`slot-${i}`} slotIndex={cards.length + i + 1} />
+        ))}
+      </div>
+
+      <div className="text-xs text-[var(--color-text-muted)] border-t border-[var(--color-border)] pt-4">
+        Discipline: never run more than {MAX_PORTFOLIO_SIZE} products at
+        once. If a product hits <span className="text-[var(--color-fail)]">KILL</span>,
+        run <code className="text-[var(--color-text)]">KILL-PROTOCOL.md</code>{" "}
+        before adding a replacement.
       </div>
     </div>
   );
