@@ -1,17 +1,15 @@
-import { BetaAnalyticsDataClient } from "@google-analytics/data";
+import { google } from "googleapis";
 import { googleAuthClient } from "./google/auth";
 
-let cached: BetaAnalyticsDataClient | null = null;
-
-function client(): BetaAnalyticsDataClient {
-  if (cached) return cached;
-  // Reuse the same OAuth2 client that GSC uses — googleapis hands the
-  // access token off to gax, which the GA4 Data API client also
-  // consumes via the `authClient` option.
-  cached = new BetaAnalyticsDataClient({
-    authClient: googleAuthClient() as never,
-  });
-  return cached;
+/**
+ * GA4 Data API client. We use the googleapis HTTP REST adapter
+ * instead of @google-analytics/data (gRPC) so that:
+ *   - errors share the same shape as Search Console (debuggable)
+ *   - we don't ship a second auth + transport stack
+ *   - the OAuth2Client we built in google/auth.ts plugs in directly
+ */
+function client() {
+  return google.analyticsdata({ version: "v1beta", auth: googleAuthClient() });
 }
 
 export interface Ga4Snapshot {
@@ -25,28 +23,33 @@ export async function fetchGa4Snapshot(
   days = 7
 ): Promise<Ga4Snapshot> {
   const property = `properties/${propertyId}`;
-  const dateRange = { startDate: `${days}daysAgo`, endDate: "today" };
+  const dateRanges = [{ startDate: `${days}daysAgo`, endDate: "today" }];
+  const sdk = client();
 
-  const [overview] = await client().runReport({
+  const overview = await sdk.properties.runReport({
     property,
-    dateRanges: [dateRange],
-    metrics: [{ name: "sessions" }, { name: "totalUsers" }],
+    requestBody: {
+      dateRanges,
+      metrics: [{ name: "sessions" }, { name: "totalUsers" }],
+    },
   });
-  const ovRow = overview.rows?.[0]?.metricValues ?? [];
+  const ovRow = overview.data.rows?.[0]?.metricValues ?? [];
   const sessions = Number(ovRow[0]?.value ?? 0);
   const users = Number(ovRow[1]?.value ?? 0);
 
-  const [pages] = await client().runReport({
+  const pages = await sdk.properties.runReport({
     property,
-    dateRanges: [dateRange],
-    dimensions: [{ name: "pagePath" }],
-    metrics: [{ name: "screenPageViews" }],
-    orderBys: [
-      { metric: { metricName: "screenPageViews" }, desc: true },
-    ],
-    limit: 5,
+    requestBody: {
+      dateRanges,
+      dimensions: [{ name: "pagePath" }],
+      metrics: [{ name: "screenPageViews" }],
+      orderBys: [
+        { metric: { metricName: "screenPageViews" }, desc: true },
+      ],
+      limit: "5",
+    },
   });
-  const topPages = (pages.rows ?? []).map((r) => ({
+  const topPages = (pages.data.rows ?? []).map((r) => ({
     path: r.dimensionValues?.[0]?.value ?? "",
     views: Number(r.metricValues?.[0]?.value ?? 0),
   }));
