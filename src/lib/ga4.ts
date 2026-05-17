@@ -1,20 +1,15 @@
 import { BetaAnalyticsDataClient } from "@google-analytics/data";
+import { googleAuthClient } from "./google/auth";
 
 let cached: BetaAnalyticsDataClient | null = null;
 
 function client(): BetaAnalyticsDataClient {
   if (cached) return cached;
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const keyB64 = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_B64;
-  if (!email || !keyB64) {
-    throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY_B64 missing");
-  }
-  const parsed = JSON.parse(Buffer.from(keyB64, "base64").toString("utf8"));
+  // Reuse the same OAuth2 client that GSC uses — googleapis hands the
+  // access token off to gax, which the GA4 Data API client also
+  // consumes via the `authClient` option.
   cached = new BetaAnalyticsDataClient({
-    credentials: {
-      client_email: parsed.client_email,
-      private_key: parsed.private_key,
-    },
+    authClient: googleAuthClient() as never,
   });
   return cached;
 }

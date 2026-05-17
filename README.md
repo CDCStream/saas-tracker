@@ -68,6 +68,38 @@ cp .env.example .env.local   # fill in values
 pnpm dev
 ```
 
+## GA4 + Search Console auth
+
+We use **OAuth user credentials**, not a Service Account, so the
+dashboard reads under the owner's admin Gmail. Service Accounts need a
+fresh GCP project per dashboard, and personal Google accounts have a
+hard project quota that's easy to hit.
+
+One-time setup — about 5 minutes:
+
+1. Pick any existing GCP project you own (the one your Firebase /
+   Lirefin extension OAuth client lives in is fine). Enable:
+   - **Google Analytics Data API**
+   - **Search Console API**
+2. **APIs & Services → Credentials → Create credentials → OAuth client
+   ID** → application type **Desktop app**. Copy the Client ID and
+   Client Secret.
+3. From this repo:
+   ```bash
+   node scripts/get-refresh-token.mjs <CLIENT_ID> <CLIENT_SECRET>
+   ```
+   The script opens a browser. Sign in with the admin Gmail and grant
+   both scopes. It prints a refresh token to the terminal.
+4. Set in Vercel (Production + Preview):
+   - `GOOGLE_OAUTH_CLIENT_ID`
+   - `GOOGLE_OAUTH_CLIENT_SECRET`
+   - `GOOGLE_OAUTH_REFRESH_TOKEN`
+5. Redeploy.
+
+Refresh tokens don't expire as long as the grant isn't revoked at
+[myaccount.google.com/permissions](https://myaccount.google.com/permissions).
+If you ever need a new one, rerun the script.
+
 ## Auth model
 
 The dashboard is locked behind **Vercel Deployment Protection (password)** — no auth code in the app itself, since it is a single-user tool. Robots are also blocked at the HTTP-header level (`X-Robots-Tag: noindex, nofollow`).

@@ -1,40 +1,42 @@
 import { google } from "googleapis";
 
-type JWT = InstanceType<typeof google.auth.JWT>;
-let cachedAuth: JWT | null = null;
+type OAuth2Client = InstanceType<typeof google.auth.OAuth2>;
+
+let cached: OAuth2Client | null = null;
 
 /**
- * Decodes the base64 service-account JSON from env and returns a
- * googleapis-compatible auth client. Cached per Lambda invocation.
+ * OAuth2 user-credential auth, not Service Account. Lets the dashboard
+ * read GA4 + GSC under the *owner's* Gmail account (which is already
+ * an admin on the property/site) without burning a GCP project slot
+ * on a Service Account.
  *
- * Scopes: GA4 Data API + Search Console.
+ * One-time setup: see scripts/get-refresh-token.mjs to mint the
+ * refresh token. Then drop these three values into Vercel:
+ *   GOOGLE_OAUTH_CLIENT_ID
+ *   GOOGLE_OAUTH_CLIENT_SECRET
+ *   GOOGLE_OAUTH_REFRESH_TOKEN
+ *
+ * The googleapis SDK swaps the refresh token for a short-lived access
+ * token on every request and caches it in-process — no Lambda-edge
+ * latency hit beyond the first call per cold start.
  */
-export function googleAuthClient(): JWT {
-  if (cachedAuth) return cachedAuth;
+export function googleAuthClient(): OAuth2Client {
+  if (cached) return cached;
 
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const keyB64 = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_B64;
-  if (!email || !keyB64) {
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
+
+  if (!clientId || !clientSecret || !refreshToken) {
     throw new Error(
-      "GOOGLE_SERVICE_ACCOUNT_EMAIL or GOOGLE_SERVICE_ACCOUNT_KEY_B64 missing — set both in Vercel env."
+      "GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, and " +
+        "GOOGLE_OAUTH_REFRESH_TOKEN must all be set in Vercel env. " +
+        "Run `node scripts/get-refresh-token.mjs` to mint a refresh token."
     );
   }
 
-  const decoded = Buffer.from(keyB64, "base64").toString("utf8");
-  const parsed = JSON.parse(decoded) as {
-    private_key: string;
-    client_email: string;
-  };
-
-  const auth = new google.auth.JWT({
-    email: parsed.client_email,
-    key: parsed.private_key,
-    scopes: [
-      "https://www.googleapis.com/auth/analytics.readonly",
-      "https://www.googleapis.com/auth/webmasters.readonly",
-    ],
-  });
-
-  cachedAuth = auth;
-  return auth;
+  const client = new google.auth.OAuth2(clientId, clientSecret);
+  client.setCredentials({ refresh_token: refreshToken });
+  cached = client;
+  return client;
 }
