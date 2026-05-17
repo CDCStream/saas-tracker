@@ -25,14 +25,16 @@ export function supabaseFallbackProvider(
       if (error) throw error;
       const rows = data ?? [];
 
+      const thirtyDaysAgo = subDays(new Date(), 30);
+
       const active = rows.filter((r) => r.status === "active");
       const cancelled30d = rows.filter(
         (r) =>
           r.cancelled_at &&
-          new Date(r.cancelled_at as string) >= subDays(new Date(), 30)
+          new Date(r.cancelled_at as string) >= thirtyDaysAgo
       );
       const newPaying30d = active.filter(
-        (r) => new Date(r.created_at as string) >= subDays(new Date(), 30)
+        (r) => new Date(r.created_at as string) >= thirtyDaysAgo
       ).length;
 
       const mrrCents = active.reduce(
@@ -41,10 +43,20 @@ export function supabaseFallbackProvider(
       );
       const payingUsers = active.length;
       const churned30d = cancelled30d.length;
+
+      // Same cohort-based churn as the Dodo provider — keeps the metric
+      // comparable across products no matter which billing source we
+      // read from.
+      const cohortNumerator = cancelled30d.filter(
+        (r) => new Date(r.created_at as string) < thirtyDaysAgo
+      ).length;
+      const cohortAtStart =
+        active.filter(
+          (r) => new Date(r.created_at as string) < thirtyDaysAgo
+        ).length + cohortNumerator;
       const monthlyChurnRate =
-        payingUsers + churned30d === 0
-          ? 0
-          : churned30d / (payingUsers + churned30d);
+        cohortAtStart === 0 ? 0 : cohortNumerator / cohortAtStart;
+
       const arpuCents = payingUsers === 0 ? 0 : mrrCents / payingUsers;
 
       return {

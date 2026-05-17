@@ -76,28 +76,39 @@ export function dodoProvider(args: DodoArgs): BillingProvider {
         listPayments(30),
       ]);
 
-      const mrrCents = active.reduce(
-        (sum, s) => sum + mrrFromSub(s),
-        0
-      );
+      const thirtyDaysAgo = subDays(new Date(), 30);
+
+      const mrrCents = active.reduce((sum, s) => sum + mrrFromSub(s), 0);
       const payingUsers = active.length;
-      const churned30d = cancelled.length;
 
       const newPaying30d = active.filter((s) => {
         const createdAt = s.created_at ? new Date(s.created_at) : null;
-        return createdAt
-          ? createdAt >= subDays(new Date(), 30)
-          : false;
+        return createdAt ? createdAt >= thirtyDaysAgo : false;
       }).length;
+
+      // Standard SaaS monthly churn — denominator is "subs paying at
+      // start of period", numerator is "subs from that cohort that
+      // churned within the period". Ignoring brand-new signups in
+      // both keeps the rate comparable across months.
+      const cohortNumerator = cancelled.filter((s) => {
+        if (!s.created_at) return false;
+        return new Date(s.created_at) < thirtyDaysAgo;
+      }).length;
+
+      const cohortAtStart =
+        active.filter((s) => {
+          if (!s.created_at) return false;
+          return new Date(s.created_at) < thirtyDaysAgo;
+        }).length + cohortNumerator;
+
+      const monthlyChurnRate =
+        cohortAtStart === 0 ? 0 : cohortNumerator / cohortAtStart;
+
+      const churned30d = cancelled.length; // raw count, used elsewhere
 
       const refunds30dCents = payments
         .filter((p) => (p.status ?? "").toLowerCase().includes("refund"))
         .reduce((sum, p) => sum + (p.total_amount ?? 0), 0);
-
-      const monthlyChurnRate =
-        payingUsers + churned30d === 0
-          ? 0
-          : churned30d / (payingUsers + churned30d);
 
       const arpuCents = payingUsers === 0 ? 0 : mrrCents / payingUsers;
 

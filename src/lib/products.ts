@@ -14,6 +14,16 @@ const lirefinDodoEnv = (process.env.LIREFIN_DODO_ENV ?? "live_mode") as
   | "live_mode"
   | "test_mode";
 
+/**
+ * Test window starts the day distribution is *actually live* —
+ * Ads campaign live + PH launched + Outrank publishing — not the day
+ * the dashboard ships. Set this in Vercel the day all three channels
+ * are open. Default falls back to today so a fresh deploy still
+ * renders something sensible.
+ */
+const lirefinTestStart =
+  process.env.LIREFIN_TEST_START_DATE ?? new Date().toISOString().slice(0, 10);
+
 export const PRODUCTS: ProductConfig[] = [
   {
     slug: "lirefin",
@@ -22,7 +32,7 @@ export const PRODUCTS: ProductConfig[] = [
     webStoreUrl:
       "https://chromewebstore.google.com/detail/lirefin-%E2%80%94-ai-financial-ne/elpiafniahnjnmoodadceifmapnclpjj",
     productHuntUrl: undefined,
-    testStartDate: "2026-05-17",
+    testStartDate: lirefinTestStart,
     testDurationDays: 60,
     thresholds: DEFAULT_THRESHOLDS,
     supabase: {

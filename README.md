@@ -45,6 +45,21 @@ existing product first via [KILL-PROTOCOL.md](KILL-PROTOCOL.md). Then:
 3. Implement the SaaS-specific Supabase queries in `src/lib/queries/<slug>.ts` if its schema differs from Lirefin's.
 4. Redeploy.
 
+## Starting the 60-day window
+
+Gate 1's `signups`, `landing visitors`, `CPC`, and `PH upvotes`
+thresholds assume distribution is actually running. Don't trip the
+day-30 hard kill on a product whose Ads campaign isn't even live yet.
+
+The day **all three channels** are open simultaneously — Ads campaign
+live + Product Hunt launched + Outrank publishing — set
+`<SLUG>_TEST_START_DATE=YYYY-MM-DD` in Vercel and redeploy. The
+dashboard's day counter resets, the 60-day gate window starts on
+that date.
+
+If the env is unset, the test starts on the day of the most recent
+deploy — fine while you're scaffolding, dangerous in steady state.
+
 ## Local dev
 
 ```bash
