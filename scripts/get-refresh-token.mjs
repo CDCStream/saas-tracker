@@ -144,21 +144,28 @@ server.listen(REDIRECT_PORT, async () => {
       "property and the GSC site. Grant both scopes when asked.\n"
   );
 
-  // Best-effort: open the URL in the default browser. Falls back to
-  // the printed URL above if `open` isn't available.
-  const cmd =
-    process.platform === "win32"
-      ? "start"
-      : process.platform === "darwin"
-        ? "open"
-        : "xdg-open";
+  // Best-effort browser open. Avoid `cmd /c start` on Windows because
+  // `&` in OAuth URLs gets interpreted as a command separator,
+  // truncating the URL and breaking the request. `explorer.exe`
+  // accepts the URL verbatim and just opens the default browser.
   try {
     const { spawn } = await import("node:child_process");
-    spawn(cmd, [authUrl.toString()], {
-      stdio: "ignore",
-      detached: true,
-      shell: true,
-    }).unref();
+    if (process.platform === "win32") {
+      spawn("explorer.exe", [authUrl.toString()], {
+        stdio: "ignore",
+        detached: true,
+      }).unref();
+    } else if (process.platform === "darwin") {
+      spawn("open", [authUrl.toString()], {
+        stdio: "ignore",
+        detached: true,
+      }).unref();
+    } else {
+      spawn("xdg-open", [authUrl.toString()], {
+        stdio: "ignore",
+        detached: true,
+      }).unref();
+    }
   } catch {
     /* user can copy-paste the URL manually */
   }
